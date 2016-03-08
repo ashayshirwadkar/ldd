@@ -1,2 +1,2 @@
-# linux_device_driver
-Simple Device Driver
+# linux block device driver
+Simple Block Device Driver
