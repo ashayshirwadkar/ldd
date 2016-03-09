@@ -1,6 +1,5 @@
 obj-m := module_ldd.o
-module_ldd-objs := ldd.o queue.o
-
+module_ldd-objs :=  ldd.o proc_entries.o queue.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

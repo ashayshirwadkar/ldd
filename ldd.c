@@ -12,8 +12,8 @@
 #include <linux/workqueue.h>
 
 #include "queue.h"
-
-MODULE_LICENSE("GPL");
+#include "ldd.h"
+#include "proc_entries.h"
 
 static int major_num = 0;
 module_param(major_num, int, 0);
@@ -28,29 +28,7 @@ module_param(threshold_io_count, int, 0);
 static struct workqueue_struct *wq;
 static queue *q;
 static struct kmem_cache *cache = NULL;
-/*
- * We can tweak our hardware sector size, but the kernel talks to us
- * in terms of small sectors, always.
- */
-#define KERNEL_SECTOR_SIZE 512
-#define MAX_BUFSIZE 4096
-/*
- * The internal representation of our device.
- */
-struct ldd_device {
-        unsigned long size;
-        spinlock_t lock;
-        u8 *data;
-        struct gendisk *gd;
-        struct request_queue *req_queue;
-};
-
-struct io_entry {
-        unsigned long offset;
-        unsigned long nbytes;
-        char buffer[MAX_BUFSIZE]; //FIXME
-};
-        
+struct driver_stats dev_stat;
 static struct ldd_device ldd_dev;
 
 static void wq_function(struct work_struct *work)
@@ -73,7 +51,7 @@ static void wq_function(struct work_struct *work)
 }
 
 
-static void flush_io(void)
+void flush_io(void)
 {       
         struct io_entry *io = NULL;
         printk (KERN_INFO "Flushing pending IO\n");
@@ -152,11 +130,17 @@ static struct block_device_operations ldd_ops = {
                 .owner  = THIS_MODULE
 };
 
-void io_entry_constructor(void *buffer)
+static void io_entry_constructor(void *buffer)
 {
 	struct io_entry *io = (struct io_entry *)buffer;
 	io->nbytes = 0;
 	io->offset = 0;
+}
+
+ssize_t total_in_memory_data(void)
+{
+        dev_stat.total_in_memory = (queue_entries(q) * sizeof(struct io_entry));
+        return dev_stat.total_in_memory;
 }
 
 static int __init ldd_init(void) {
@@ -205,9 +189,13 @@ static int __init ldd_init(void) {
         ldd_dev.gd->queue = ldd_dev.req_queue;
         add_disk(ldd_dev.gd);
         printk (KERN_INFO "init successful");
-
+        
+        spin_lock_init(&dev_stat.lock);
         /* create workqueue */
         wq = create_workqueue("my_queue");
+
+        /* create proc entries */
+        create_proc_entries();
         return 0;
 
 out_unregister:
@@ -229,7 +217,11 @@ static void __exit ldd_exit(void)
         flush_workqueue(wq);
         destroy_workqueue(wq);
         queue_delete(q);
+        remove_proc_entries();
 }
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Ashay Shirwadkar");
 
 module_init(ldd_init);
 module_exit(ldd_exit);

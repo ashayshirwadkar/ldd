@@ -2,8 +2,10 @@
 #include <linux/list.h>
 
 #include "queue.h"
+#include "ldd.h"
 
 extern int threshold_io_count;
+extern struct driver_stats dev_stat;
 
 queue *queue_create(void)
 {
@@ -28,6 +30,11 @@ void queue_delete(queue *q)
 {
         kfree((void *) q);
         return;
+}
+
+ssize_t queue_entries(queue *q)
+{
+    return q->no_of_elements;
 }
 
 void queue_enqueue(queue *q, void *item)
@@ -66,6 +73,7 @@ void *queue_dequeue(queue *q)
         kfree((void *) entry);
         q->no_of_elements--;
         queue_unlock(q);
+        dev_stat.batches_flushed++;
         printk(KERN_INFO "dequeued element\n");
         return item;
 }
