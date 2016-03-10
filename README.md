@@ -28,12 +28,12 @@ $ sudo insmod module_ldd.ko threshold_io_count=2
 After inserting module, you can read/write to each proc entry depending upon what is supported. Following shows sample usage
 ```sh
 $ [root@localhost ldd]# cat /proc/proc_1
-$  Total memory taken by driver in bytes: 4168 
+$ Total memory taken by driver in bytes: 4168 
 $ [root@localhost ldd]# cat /proc/proc_2
-$  Batches of IOs fulshed: 2
+$ Batches of IOs fulshed: 2
 $ [root@localhost ldd]# cat /proc/proc_4
-$  Total in-memory data in bytes: 4112
+$ Total in-memory data in bytes: 4112
 $ [root@localhost ldd]# echo 1 > /proc/proc_3
 $ [root@localhost ldd]# dmesg -c 
-$  [5815.744239] Flushing pending IO
-$  [5815.744243] dequeued element
+$ [5815.744239] Flushing pending IO
+$ [5815.744243] dequeued element
