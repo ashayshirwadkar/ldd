@@ -25,11 +25,13 @@ int threshold_io_count = 0;
 module_param(threshold_io_count, int, 0);
 
 
-static struct workqueue_struct *wq;
-static queue *q;
+
 static struct kmem_cache *cache = NULL;
-struct driver_stats dev_stat;
+static struct workqueue_struct *wq;
 static struct ldd_device ldd_dev;
+static queue *q;
+struct driver_stats dev_stat;
+
 
 static void wq_function(struct work_struct *work)
 {       
@@ -78,11 +80,6 @@ static void ldd_transfer(struct ldd_device *dev, sector_t sector,
         struct io_entry *io = NULL;
         
 
-/*        if ((offset + nbytes) > dev->size) {
-                printk (KERN_NOTICE "ldd: Beyond-end write (%ld %ld)\n",
-                        offset, nbytes);
-                return;
-                }*/
         if (write) {
                 /* Create thread to handle data */
 
@@ -96,8 +93,8 @@ static void ldd_transfer(struct ldd_device *dev, sector_t sector,
                         if (queue_isfull(q)) { 
                             work = (struct work_struct *)kmalloc(sizeof(struct work_struct), GFP_KERNEL);
                             if (work) {
-                                INIT_WORK(work, wq_function);
-                                queue_work(wq, work);
+				    INIT_WORK(work, wq_function);
+				    queue_work(wq, work);
                             }
                             
                         }
@@ -115,8 +112,9 @@ static void ldd_request(struct request_queue *q) {
                         __blk_end_request_all(req, -EIO);
                         continue;
                 }
-                ldd_transfer(&ldd_dev, blk_rq_pos(req), blk_rq_cur_sectors(req),
-                             req->buffer, rq_data_dir(req));
+                ldd_transfer(&ldd_dev, blk_rq_pos(req),
+			     blk_rq_cur_sectors(req), req->buffer,
+			     rq_data_dir(req));
                 if ( ! __blk_end_request_cur(req, 0) ) {
                         req = blk_fetch_request(q);
                 }
@@ -139,7 +137,8 @@ static void io_entry_constructor(void *buffer)
 
 ssize_t total_in_memory_data(void)
 {
-        dev_stat.total_in_memory = (queue_entries(q) * sizeof(struct io_entry));
+        dev_stat.total_in_memory = (queue_entries(q) * 
+				    sizeof(struct io_entry));
         return dev_stat.total_in_memory;
 }
 
@@ -149,7 +148,8 @@ static int __init ldd_init(void) {
         cache = kmem_cache_create("mem_cache", sizeof(struct io_entry),
 				  0,
 				  (SLAB_RECLAIM_ACCOUNT|
-                                   SLAB_PANIC|SLAB_MEM_SPREAD|SLAB_NOLEAKTRACE),
+                                   SLAB_PANIC|SLAB_MEM_SPREAD|
+				   SLAB_NOLEAKTRACE),
 				  io_entry_constructor);
         /*
          * Set up our internal device.

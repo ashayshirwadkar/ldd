@@ -10,7 +10,7 @@ extern struct driver_stats dev_stat;
 queue *queue_create(void)
 {
         queue *q;
-        
+	
         q = (queue *)kmalloc(sizeof(queue), GFP_KERNEL);
         if (!q) {
                 printk(KERN_ALERT "queue_create:kmalloc failed\n");
