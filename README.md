@@ -32,9 +32,7 @@ $ make
 $ ./test 1 # Print driver statistics i.e data from proc entries
 $ ./test 2 # Write to proc entries 
 ```
-License
-----
-
+### License
 GPLv3
 
 
