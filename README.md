@@ -16,7 +16,7 @@ In module created proc entries to give stats regarding driver
 * proc_4 - Data that is in memory & need to flush to disk
 
 ### Steps to compile and load module
-**Warning**: code is tested for kernel 3.11.10
+**Warning**: code is tested on kernel 3.11.10
 
 ```sh
 $ git clone [git-repo-url] ldd
@@ -27,13 +27,15 @@ $ sudo insmod module_ldd.ko threshold_io_count=2
 ### Usage of proc entries
 After inserting module, you can read/write to each proc entry depending upon what is supported. Following shows sample usage
 ```sh
-$ [root@localhost ldd]# cat /proc/proc_1
-$ Total memory taken by driver in bytes: 4168 
-$ [root@localhost ldd]# cat /proc/proc_2
-$ Batches of IOs fulshed: 2
-$ [root@localhost ldd]# cat /proc/proc_4
-$ Total in-memory data in bytes: 4112
-$ [root@localhost ldd]# echo 1 > /proc/proc_3
-$ [root@localhost ldd]# dmesg -c 
-$ [5815.744239] Flushing pending IO
-$ [5815.744243] dequeued element
+$ cd ldd/tests
+$ make
+$ ./test 1 # Print driver statistics i.e data from proc entries
+$ ./test 2 # Write to proc entries 
+```
+License
+----
+
+GPLv3
+
+
+**Free Software, Hell Yeah!**
