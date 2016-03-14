@@ -16,7 +16,10 @@ queue *queue_create(void)
                 printk(KERN_ALERT "queue_create:kmalloc failed\n");
                 return q;
         }
-        
+        spin_lock(&(dev_stat.lock));
+        dev_stat.driver_memory += sizeof(queue);
+        spin_unlock(&(dev_stat.lock));
+
         INIT_LIST_HEAD(&(q->list));
         spin_lock_init(&(q->lock));
         q->no_of_elements = 0;
@@ -29,6 +32,10 @@ queue *queue_create(void)
 void queue_delete(queue *q)
 {
         kfree((void *) q);
+        spin_lock(&(dev_stat.lock));
+        dev_stat.driver_memory -= sizeof(queue_entry);
+        spin_unlock(&(dev_stat.lock));
+
         return;
 }
 
@@ -46,6 +53,9 @@ void queue_enqueue(queue *q, void *item)
                 printk(KERN_ALERT "queue_enqueue:kmalloc failed\n");
                 return;
         }
+        spin_lock(&(dev_stat.lock));
+        dev_stat.driver_memory += sizeof(queue_entry);
+        spin_unlock(&(dev_stat.lock));
         
         entry->item = item;
         printk(KERN_INFO "enqueued element %d\n", threshold_io_count);
@@ -73,6 +83,9 @@ void *queue_dequeue(queue *q)
         kfree((void *) entry);
         q->no_of_elements--;
         queue_unlock(q);
+        spin_lock(&(dev_stat.lock));
+        dev_stat.driver_memory -= sizeof(queue_entry);
+        spin_unlock(&(dev_stat.lock));
         dev_stat.batches_flushed++;
         printk(KERN_INFO "dequeued element\n");
         return item;
@@ -112,50 +125,3 @@ void queue_unlock(queue *q)
         spin_unlock(&(q->lock));
         return;
 }
-/*
-MODULE_LICENSE("GPL");
-static int __init queue_init(void) {
-        queue *q;
-        void  *item;
-        int ret = 0;
-        
-        q = queue_create();
-        
-        item = kmalloc(20, GFP_KERNEL);
-        queue_enqueue(q, item);
-        
-        item = kmalloc(20, GFP_KERNEL);
-        queue_enqueue(q, item);
-        
-        item = kmalloc(20, GFP_KERNEL);
-        ret = queue_isfull(q);
-        if (ret)
-            goto out1;
-        queue_enqueue(q, item);
-        
-        while(1)
-        {
-                if (queue_isempty(q))
-                        break;
-                
-                item = queue_dequeue(q);
-                kfree(item);
-        }
-        
-        queue_delete(q);        
-        goto out;
- out1:
-        printk(KERN_INFO "queue full\n");
- out:
-        return ret;
-}
-
-static void __exit queue_exit(void)
-{
-        return;
-}
-
-module_init(queue_init);
-module_exit(queue_exit);
-
-*/

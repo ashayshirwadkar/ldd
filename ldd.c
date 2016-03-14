@@ -1,14 +1,10 @@
 #include <linux/module.h>
-#include <linux/kernel.h> /* printk() */
+#include <linux/kernel.h>
 
 /* Device specific files*/
 #include <linux/genhd.h>
 #include <linux/blkdev.h>
 
-/* Thread specific files */
-#include <linux/kthread.h>  // for threads
-#include <linux/sched.h>  // for task_struct
-#include <linux/delay.h>
 #include <linux/workqueue.h>
 
 #include "queue.h"
@@ -16,15 +12,12 @@
 #include "proc_entries.h"
 
 static int major_num = 0;
-module_param(major_num, int, 0);
-static int logical_block_size = 512;
-module_param(logical_block_size, int, 0);
-static int nsectors = 1024; /* How big the drive is */
-module_param(nsectors, int, 0);
+static int logical_blk_size = 512;
+static int nsectors = 1024;
+
+/* Threshold for IO's to be cached */
 int threshold_io_count = 0;
 module_param(threshold_io_count, int, 0);
-
-
 
 static struct kmem_cache *cache = NULL;
 static struct workqueue_struct *wq;
@@ -33,6 +26,9 @@ static queue *q;
 struct driver_stats dev_stat;
 
 
+/**
+ * Dequeues cached IO's and serves  the request
+ */
 static void wq_function(struct work_struct *work)
 {       
         struct io_entry *io = NULL;
@@ -47,12 +43,21 @@ static void wq_function(struct work_struct *work)
                 memcpy(ldd_dev.data + io->offset, io->buffer, io->nbytes);
                 spin_unlock(&(ldd_dev.lock));
          	kmem_cache_free(cache, io);
+                spin_lock(&(dev_stat.lock));
+                dev_stat.driver_memory -= sizeof(struct io_entry);
+                spin_unlock(&(dev_stat.lock));        
         }
         kfree(work);
+        spin_lock(&(dev_stat.lock));
+        dev_stat.driver_memory -= sizeof(struct work_struct);
+        spin_unlock(&(dev_stat.lock));
+
         return;
 }
 
-
+/**
+ * On request from proc entry it dequeues and serves the request. 
+ */
 void flush_io(void)
 {       
         struct io_entry *io = NULL;
@@ -67,11 +72,14 @@ void flush_io(void)
                 memcpy(ldd_dev.data + io->offset, io->buffer, io->nbytes);
                 spin_unlock(&(ldd_dev.lock));
          	kmem_cache_free(cache, io);
+                spin_lock(&(dev_stat.lock));
+                dev_stat.driver_memory -= sizeof(struct io_entry);
+                spin_unlock(&(dev_stat.lock));        
         }
         return;
 }
 
-/*
+/**
  * Handle an I/O request.
  */
 static void ldd_transfer(struct ldd_device *dev, sector_t sector,
@@ -79,29 +87,40 @@ static void ldd_transfer(struct ldd_device *dev, sector_t sector,
         struct work_struct *work = NULL;
         struct io_entry *io = NULL;
         
-
         if (write) {
-                /* Create thread to handle data */
 
                 printk(KERN_INFO "write_request");
                 if (wq) {                        
                         io = kmem_cache_alloc(cache, GFP_KERNEL);
-                        io->nbytes = nsect * logical_block_size;
-                        io->offset = sector * logical_block_size;
+                        spin_lock(&(dev_stat.lock));
+                        dev_stat.driver_memory += sizeof(struct io_entry);
+                        spin_unlock(&(dev_stat.lock));
+
+                        io->nbytes = nsect * logical_blk_size;
+                        io->offset = sector * logical_blk_size;
                         memcpy(io->buffer, buffer, io->nbytes);
                         queue_enqueue(q, (void*)io);
                         if (queue_isfull(q)) { 
-                            work = (struct work_struct *)kmalloc(sizeof(struct work_struct), GFP_KERNEL);
+
+                         /* Allocate memory for struct work */
+                            work = (struct work_struct *)
+                                    kmalloc(sizeof(struct work_struct), GFP_KERNEL);
+                            spin_lock(&(dev_stat.lock));
+                            dev_stat.driver_memory += sizeof(struct work_struct);
+                            spin_unlock(&(dev_stat.lock));
+
                             if (work) {
 				    INIT_WORK(work, wq_function);
 				    queue_work(wq, work);
-                            }
-                            
+                            }                   
                         }
                 }
         }
 }
 
+/**
+ * Handles request from request queue. 
+ */
 static void ldd_request(struct request_queue *q) {
         struct request *req;
 
@@ -121,13 +140,16 @@ static void ldd_request(struct request_queue *q) {
         }
 }
 
-/*
+/**
  * The device operations structure.
  */
 static struct block_device_operations ldd_ops = {
                 .owner  = THIS_MODULE
 };
 
+/**
+ * Constructor for struct io_entry
+ */
 static void io_entry_constructor(void *buffer)
 {
 	struct io_entry *io = (struct io_entry *)buffer;
@@ -144,6 +166,11 @@ ssize_t total_in_memory_data(void)
 
 static int __init ldd_init(void) {
 
+        dev_stat.driver_memory = 0;
+        dev_stat.total_in_memory = 0;
+        dev_stat.batches_flushed = 0;
+        spin_lock_init(&dev_stat.lock);
+
         q = queue_create();	
         cache = kmem_cache_create("mem_cache", sizeof(struct io_entry),
 				  0,
@@ -154,18 +181,22 @@ static int __init ldd_init(void) {
         /*
          * Set up our internal device.
          */
-        ldd_dev.size = nsectors * logical_block_size;
+        ldd_dev.size = nsectors * logical_blk_size;
         spin_lock_init(&ldd_dev.lock);
         ldd_dev.data = vmalloc(ldd_dev.size);
         if (ldd_dev.data == NULL)
                 return -ENOMEM;
+        spin_lock(&(dev_stat.lock));
+        dev_stat.driver_memory += sizeof(ldd_dev.size);
+        spin_unlock(&(dev_stat.lock));
+        
         /*
          * Get a request queue.
          */
         ldd_dev.req_queue = blk_init_queue(ldd_request, &ldd_dev.lock);
         if (ldd_dev.req_queue == NULL)
                 goto out;
-        blk_queue_logical_block_size(ldd_dev.req_queue, logical_block_size);
+        blk_queue_logical_block_size(ldd_dev.req_queue, logical_blk_size);
         /*
          * Get registered.
          */
@@ -190,7 +221,6 @@ static int __init ldd_init(void) {
         add_disk(ldd_dev.gd);
         printk (KERN_INFO "init successful");
         
-        spin_lock_init(&dev_stat.lock);
         /* create workqueue */
         wq = create_workqueue("my_queue");
 
@@ -202,6 +232,10 @@ out_unregister:
         unregister_blkdev(major_num, "sdc");
 out:
         vfree(ldd_dev.data);
+        spin_lock(&(dev_stat.lock));
+        dev_stat.driver_memory -= sizeof(ldd_dev.size);
+        spin_unlock(&(dev_stat.lock));
+
         return -ENOMEM;
 }
 

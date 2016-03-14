@@ -5,7 +5,7 @@
 
 struct proc_dir_entry *proc;
 static char proc_priv_data[4][8] = {"proc_1", "proc_2", "proc_3", "proc_4"};
-char op_buf[MAXLEN];
+static char op_buf[MAXLEN];
 
 extern int total_batches;
 extern struct driver_stats dev_stat;
@@ -24,7 +24,16 @@ ssize_t proc_read(struct file *filp, char *buf, size_t count, loff_t *offp )
         
         /* proc_1: Displays total amount of memory used by driver */
         if (!strncmp(data, proc_priv_data[0], strlen(proc_priv_data[0]))) {
-                /* TODO */
+                spin_lock(&(dev_stat.lock));
+                sprintf(op_buf, "Total memory taken by driver in bytes: %ld",
+                        dev_stat.driver_memory);
+                spin_unlock(&(dev_stat.lock));
+                data_len = strlen(op_buf);
+                if(count > data_len) {
+                        count = data_len;
+                }
+                count = simple_read_from_buffer(buf, count, offp, op_buf,
+                                                data_len);
         } 
         /* proc_2: Total batches of data flushed */
         else if (!strncmp(data, proc_priv_data[1], strlen(proc_priv_data[1]))) {
@@ -40,7 +49,7 @@ ssize_t proc_read(struct file *filp, char *buf, size_t count, loff_t *offp )
         /* proc_4: Total in-memory data */
         else if (!strncmp(data, proc_priv_data[3], strlen(proc_priv_data[3]))) {
                 size = total_in_memory_data();
-                sprintf(op_buf, "Total in-memory data: %ld",(long) size);
+                sprintf(op_buf, "Total in-memory data in bytes: %ld",(long) size);
                 data_len = strlen(op_buf);
                 if(count > data_len) {
                         count = data_len;
@@ -75,8 +84,8 @@ ssize_t proc_write(struct file *filp, const char *buf, size_t count, loff_t *off
                         count = -EINVAL;
         }
         else {
-                count = -EINVAL;
                 /*Do nothing*/
+                count = -EINVAL;
         }
         return count;
 }
@@ -101,20 +110,3 @@ void remove_proc_entries(void)
         remove_proc_entry("proc_3",NULL);
         remove_proc_entry("proc_4",NULL);
 }
-/*
-int proc_init (void) {
-
-        return 0;
-}
-
-void proc_cleanup(void) {
-        remove_proc_entry("proc_1",NULL);
-        remove_proc_entry("proc_2",NULL);
-        remove_proc_entry("proc_3",NULL);
-        remove_proc_entry("proc_4",NULL);
-}
-
-MODULE_LICENSE("GPL"); 
-module_init(proc_init);
-module_exit(proc_cleanup);
-*/
