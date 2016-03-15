@@ -10,7 +10,10 @@ static char op_buf[MAXLEN];
 extern int total_batches;
 extern struct driver_stats dev_stat;
 
-ssize_t proc_read(struct file *filp, char *buf, size_t count, loff_t *offp ) 
+/**
+ * Read proc entries
+ */
+ssize_t proc_read(struct file *filp, char *buf, size_t count, loff_t *offp) 
 {
         char *data = NULL;
         int data_len = 0;
@@ -25,7 +28,7 @@ ssize_t proc_read(struct file *filp, char *buf, size_t count, loff_t *offp )
         /* proc_1: Displays total amount of memory used by driver */
         if (!strncmp(data, proc_priv_data[0], strlen(proc_priv_data[0]))) {
                 spin_lock(&(dev_stat.lock));
-                sprintf(op_buf, "Total memory taken by driver in bytes: %ld",
+                sprintf(op_buf, "Total memory taken by driver: %ldB",
                         dev_stat.driver_memory);
                 spin_unlock(&(dev_stat.lock));
                 data_len = strlen(op_buf);
@@ -49,7 +52,7 @@ ssize_t proc_read(struct file *filp, char *buf, size_t count, loff_t *offp )
         /* proc_4: Total in-memory data */
         else if (!strncmp(data, proc_priv_data[3], strlen(proc_priv_data[3]))) {
                 size = total_in_memory_data();
-                sprintf(op_buf, "Total in-memory data in bytes: %ld",(long) size);
+                sprintf(op_buf, "Total in-memory data : %ldB",(long) size);
                 data_len = strlen(op_buf);
                 if(count > data_len) {
                         count = data_len;
@@ -64,7 +67,10 @@ ssize_t proc_read(struct file *filp, char *buf, size_t count, loff_t *offp )
         return count;
 }
 
-ssize_t proc_write(struct file *filp, const char *buf, size_t count, loff_t *offp ) 
+/**
+ * Write to proc entries
+ */
+ssize_t proc_write(struct file *filp, const char *buf, size_t count, loff_t *offp) 
 {
         char *data = NULL;
         char str[3];
@@ -95,18 +101,28 @@ static const struct file_operations proc_fops = {
         .write = proc_write
 };
 
+/**
+ * Create proc entries and add data to inode's priv field
+ */
 void create_proc_entries(void) 
 {
-        proc = proc_create_data("proc_1",0,NULL,&proc_fops,proc_priv_data[0]);
-        proc = proc_create_data("proc_2",0,NULL,&proc_fops,proc_priv_data[1]);
-        proc = proc_create_data("proc_3",0,NULL,&proc_fops,proc_priv_data[2]);
-        proc = proc_create_data("proc_4",0,NULL,&proc_fops,proc_priv_data[3]);
+        proc = proc_create_data("proc_1", S_IRWXU | S_IRWXG | S_IRWXO,
+                                NULL, &proc_fops, proc_priv_data[0]);
+        proc = proc_create_data("proc_2", S_IRWXU | S_IRWXG | S_IRWXO,
+                                NULL, &proc_fops,proc_priv_data[1]);
+        proc = proc_create_data("proc_3", S_IRWXU | S_IRWXG | S_IRWXO,
+                                NULL, &proc_fops,proc_priv_data[2]);
+        proc = proc_create_data("proc_4", S_IRWXU | S_IRWXG | S_IRWXO,
+                                NULL, &proc_fops,proc_priv_data[3]);
 }
 
+/**
+ * Removing proc entries 
+ */
 void remove_proc_entries(void)
 {
-        remove_proc_entry("proc_1",NULL);
-        remove_proc_entry("proc_2",NULL);
-        remove_proc_entry("proc_3",NULL);
-        remove_proc_entry("proc_4",NULL);
+        remove_proc_entry("proc_1", NULL);
+        remove_proc_entry("proc_2", NULL);
+        remove_proc_entry("proc_3", NULL);
+        remove_proc_entry("proc_4", NULL);
 }

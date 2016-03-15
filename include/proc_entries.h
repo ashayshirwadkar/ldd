@@ -8,4 +8,4 @@
 void create_proc_entries(void);
 void remove_proc_entries(void);
 
-#endif
+#endif /* _PROC_ENTRIES_H_ */

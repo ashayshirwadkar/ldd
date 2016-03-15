@@ -52,7 +52,7 @@ void test_2()
 
 int main(int argc, char *argv[])
 {
-        char *choice  = NULL;
+        char *choice = NULL;
         int rc = 0, arg = 0;
         int test_num = 0;
         

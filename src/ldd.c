@@ -32,12 +32,13 @@ struct driver_stats dev_stat;
 static void wq_function(struct work_struct *work)
 {       
         struct io_entry *io = NULL;
-        printk (KERN_INFO "Flush IO\n");
+        printk (KERN_INFO "ldd: Flush IO\n");
         while(1)
         {
                 if (queue_isempty(q))
                         break;
                 
+                printk(KERN_INFO "ldd: serving cached IO\n");
                 io = (struct io_entry *)queue_dequeue(q);
                 spin_lock(&(ldd_dev.lock));
                 memcpy(ldd_dev.data + io->offset, io->buffer, io->nbytes);
@@ -61,12 +62,13 @@ static void wq_function(struct work_struct *work)
 void flush_io(void)
 {       
         struct io_entry *io = NULL;
-        printk (KERN_INFO "Flushing pending IO\n");
+        printk (KERN_INFO "ldd: Flushing pending IO\n");
         while(1)
         {
                 if (queue_isempty(q))
                         break;
                 
+                printk(KERN_INFO "ldd: serving cached IO\n");
                 io = (struct io_entry *)queue_dequeue(q);
                 spin_lock(&(ldd_dev.lock));
                 memcpy(ldd_dev.data + io->offset, io->buffer, io->nbytes);
@@ -89,7 +91,6 @@ static void ldd_transfer(struct ldd_device *dev, sector_t sector,
         
         if (write) {
 
-                printk(KERN_INFO "write_request");
                 if (wq) {                        
                         io = kmem_cache_alloc(cache, GFP_KERNEL);
                         spin_lock(&(dev_stat.lock));
@@ -100,6 +101,7 @@ static void ldd_transfer(struct ldd_device *dev, sector_t sector,
                         io->offset = sector * logical_blk_size;
                         memcpy(io->buffer, buffer, io->nbytes);
                         queue_enqueue(q, (void*)io);
+                        printk(KERN_INFO "ldd: cached IO request\n");
                         if (queue_isfull(q)) { 
 
                          /* Allocate memory for struct work */
@@ -127,7 +129,7 @@ static void ldd_request(struct request_queue *q) {
         req = blk_fetch_request(q);
         while (req != NULL) {
                 if (req == NULL || (req->cmd_type != REQ_TYPE_FS)) {
-                        printk (KERN_NOTICE "Skip non-CMD request\n");
+                        printk (KERN_NOTICE "ldd: Skip non-CMD request\n");
                         __blk_end_request_all(req, -EIO);
                         continue;
                 }
@@ -219,7 +221,7 @@ static int __init ldd_init(void) {
         set_capacity(ldd_dev.gd, nsectors);
         ldd_dev.gd->queue = ldd_dev.req_queue;
         add_disk(ldd_dev.gd);
-        printk (KERN_INFO "init successful");
+        printk (KERN_INFO "ldd: ldd init successful");
         
         /* create workqueue */
         wq = create_workqueue("my_queue");
