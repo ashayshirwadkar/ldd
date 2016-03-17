@@ -1,5 +1,5 @@
 # Linux Block Device Driver
-Its simple block device driver which caches every write IO. Once such THRESHOLD_IO_CNT of io requests are buffered, those will be scheduled for actual flush to disk which will be handled workqueues. Slab pool is used for frequently allocated data structures.
+It is simple block device driver which caches every write IO. Once such THRESHOLD_IO_CNT of IO requests are buffered, those will be scheduled for actual flush to disk which will be handled workqueues. Slab pool is used for frequently allocated data structures.
 
 Linux kernel concepts that are covered in this modules are:
 
@@ -26,14 +26,15 @@ $ make
 $ sudo insmod module_ldd.ko threshold_io_count=2
 ```
 
-Modules also contains proc entries to give stats regarding driver
-* proc_1 - Displays total ammount of memory used by driver 
+Module also contains proc entries to give statistics regarding driver
+* proc_1 - Displays total amount of memory used by driver 
 * proc_2 - Batches of data flushed
 * proc_3 - Forces driver to flush IO's from cache
 * proc_4 - Data that is in memory & need to flush to disk
 
 ### Usage of proc entries
 After inserting module, you can read/write to each proc entry depending upon what is supported. In any case it throws appropriate error. Following shows sample usage
+
 ```sh
 $ cd ldd/tests
 $ make
@@ -49,5 +50,3 @@ $ dmesg
 
 ### License
 GPLv3
-
-
