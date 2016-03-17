@@ -1,8 +1,11 @@
-#ifndef _LDD_H_
-#define _LDD_H_
+Design
+------
 
-#define KERNEL_SECTOR_SIZE 512
-#define MAX_BUFSIZE 4096
+This module caches every write IO in generic queue. Memory for each element in 
+queue is allocated through slab allocator. Once THRSHOLD_COUNT_IO are cached,
+separate thread flushes cached IO to disk. Workqueues are used to create thread.
+
+Module contains following data structures:
 
 /*
  * The internal representation of our device.
@@ -30,7 +33,4 @@ struct driver_stats {
         spinlock_t lock;                 // lock to update fields inside stuct
 };
 
-ssize_t total_in_memory_data(void);
-void flush_io(void);
 
-#endif /* _LDD_H_ */
